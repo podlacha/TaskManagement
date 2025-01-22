@@ -15,6 +15,17 @@ CREATE TABLE Users (
     FOREIGN KEY (TenantID) REFERENCES Tenants(TenantID)
 );
 
+-- Tabela przypisująca pracowników do menedżerów
+CREATE TABLE ManagerEmployee (
+    ManagerID INT NOT NULL,
+    EmployeeID INT NOT NULL,
+    TenantID INT NOT NULL,
+    PRIMARY KEY (ManagerID, EmployeeID),
+    FOREIGN KEY (ManagerID) REFERENCES Users(UserID),
+    FOREIGN KEY (EmployeeID) REFERENCES Users(UserID),
+    FOREIGN KEY (TenantID) REFERENCES Tenants(TenantID)
+);
+
 -- Schemat dla partycjonowania
 DECLARE @StartYear INT = 2018;
 DECLARE @EndYear INT = YEAR(GETDATE()) + 5;
@@ -190,6 +201,15 @@ SELECT
     CASE WHEN n.n % 10 = 0 THEN 'manager' ELSE 'employee' END
 FROM Tenants t
 CROSS APPLY (SELECT TOP (@UsersPerTenant) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM master.dbo.spt_values) n;
+
+-- Generowanie przypisań menedżerów do pracowników
+INSERT INTO ManagerEmployee (ManagerID, EmployeeID, TenantID)
+SELECT 
+    (SELECT UserID FROM Users WHERE TenantID = u.TenantID AND UserRole = 'manager' AND UserID % 10 = 0),
+    u.UserID,
+    u.TenantID
+FROM Users u
+WHERE u.UserRole = 'employee';
 
 -- Generowanie zadań
 INSERT INTO Tasks (TenantID, AssignedTo, Title, Description, Priority, Status)
