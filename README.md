@@ -14,5 +14,10 @@ Rozwiązanie udostępnij w formie linku do repozytorium git ze skryptami tworzą
 *) Jeżeli uważasz, że brakuje Ci informacji do opracowania rozwiązania, dopisz założenia według uznania i zamieść je w Readme.
 **) Jeżeli nie potrafisz (nie masz czasu) zaimplementować wszystkiego, nie szkodzi. Zrób ile potrafisz. Opisz co Twoim zdaniem trzeba jeszcze zrobić.
 ***) Zapisz decyzje architektoniczne pozwalające zrozumieć zastosowane rozwiązanie czy uproszczenia.
-### Struktura
-Tabela -> Tabela użytkowników -> Tabela zadań ->
+### Struktura główna
+Tabela dla podmiotów -> Tabela dla użytkowników -> Tabela dla zadań -> Tabela historii zmian
+#### Podląd statystyk dla menadżerów
+Dodałem podgląd statystyk dla menadżerów. Moja ograniczona w tym momencie wiedza w zakresie SQL-a nie pozwala mi ocenić czy do statystyk powinienem dodać również odrębną tabelę. Nie mam też możliwości przetestowania skryptu.
+Nie mam pewności czy nie powinienem dodać odrębnej tabeli dat (z podziałem na miesiące). Na zajęciach z Power BI tworzyliśmy taką tabelę do generowania statystyk.
+##### Usprawnienia
+Aby usprawnić działanie skryptu (szybki rozwój struktury) zaproponowałem indeksowanie oraz partycjonowanie zadań na lata.
