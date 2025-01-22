@@ -169,6 +169,11 @@ BEGIN
         SELECT *, CONCAT(YEAR(CreatedAt), '-', FORMAT(MONTH(CreatedAt), '00')) AS Month
         FROM Tasks
         WHERE TenantID = @TenantID
+          AND (AssignedTo = @UserID OR AssignedTo IN (
+                SELECT EmployeeID 
+                FROM ManagerEmployee 
+                WHERE ManagerID = @UserID
+            ))
           AND (@Status IS NULL OR Status = @Status)
         ORDER BY CreatedAt;
     END
