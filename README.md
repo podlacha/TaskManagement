@@ -14,4 +14,5 @@ Rozwiązanie udostępnij w formie linku do repozytorium git ze skryptami tworzą
 *) Jeżeli uważasz, że brakuje Ci informacji do opracowania rozwiązania, dopisz założenia według uznania i zamieść je w Readme.
 **) Jeżeli nie potrafisz (nie masz czasu) zaimplementować wszystkiego, nie szkodzi. Zrób ile potrafisz. Opisz co Twoim zdaniem trzeba jeszcze zrobić.
 ***) Zapisz decyzje architektoniczne pozwalające zrozumieć zastosowane rozwiązanie czy uproszczenia.
-### 
+### Struktura
+Tabela -> Tabela użytkowników -> Tabela zadań ->
