@@ -18,6 +18,6 @@ Rozwiązanie udostępnij w formie linku do repozytorium git ze skryptami tworzą
 Tabela dla podmiotów -> Tabela dla użytkowników -> Tabela przypisująca użytkowników do menadżerów -> Tabela dla zadań -> Tabela historii zmian
 ## Podląd statystyk dla menadżerów
 Dodałem podgląd statystyk dla menadżerów. Moja ograniczona w tym momencie wiedza w zakresie SQL-a nie pozwala mi ocenić czy do statystyk powinienem dodać również odrębną tabelę. Nie mam też możliwości przetestowania skryptu.
-Nie mam pewności czy nie powinienem dodać odrębnej tabeli dat (z podziałem na miesiące). Na zajęciach z Power BI tworzyliśmy taką tabelę do generowania statystyk.
+Nie mam pewności czy nie powinienem dodać odrębnej tabeli dat (z podziałem na miesiące). Na zajęciach z Power BI tworzyliśmy tabelę dat do generowania statystyk.
 ### Usprawnienia
 Aby usprawnić działanie skryptu (szybki rozwój struktury) zaproponowałem indeksowanie oraz partycjonowanie zadań na lata.
