@@ -1,0 +1,204 @@
+-- Tabela dla podmiotów (tenants)
+CREATE TABLE Tenants (
+    TenantID INT IDENTITY(1,1) PRIMARY KEY,
+    TenantName NVARCHAR(255) NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE()
+);
+
+-- Tabela dla użytkowników
+CREATE TABLE Users (
+    UserID INT IDENTITY(1,1) PRIMARY KEY,
+    TenantID INT NOT NULL,
+    UserName NVARCHAR(255) NOT NULL,
+    UserRole NVARCHAR(50) CHECK (UserRole IN ('employee', 'manager')) NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (TenantID) REFERENCES Tenants(TenantID)
+);
+
+-- Schemat dla partycjonowania
+DECLARE @StartYear INT = 2018;
+DECLARE @EndYear INT = YEAR(GETDATE()) + 5;
+
+CREATE PARTITION FUNCTION pfTasks (INT)
+AS RANGE LEFT FOR VALUES (
+    SELECT DISTINCT YEAR(DATEADD(YEAR, number, CAST(@StartYear AS DATETIME)))
+    FROM master.dbo.spt_values
+    WHERE type = 'P' AND number <= (@EndYear - @StartYear)
+);
+
+CREATE PARTITION SCHEME psTasks
+AS PARTITION pfTasks ALL TO ([PRIMARY]);
+
+-- Tabela dla zadań z partycjonowaniem
+CREATE TABLE Tasks (
+    TaskID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    TenantID INT NOT NULL,
+    AssignedTo INT NOT NULL,
+    Title NVARCHAR(255) NOT NULL,
+    Description NVARCHAR(MAX),
+    Priority NVARCHAR(50) CHECK (Priority IN ('low', 'medium', 'high')) NOT NULL,
+    Status NVARCHAR(50) CHECK (Status IN ('pending', 'in_progress', 'completed')) NOT NULL DEFAULT 'pending',
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (TenantID) REFERENCES Tenants(TenantID),
+    FOREIGN KEY (AssignedTo) REFERENCES Users(UserID)
+)
+ON psTasks (YEAR(CreatedAt));
+
+-- Tabela dla historii zmian zadań
+CREATE TABLE TaskHistory (
+    HistoryID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    TaskID BIGINT NOT NULL,
+    ChangedBy INT NOT NULL,
+    ChangeDescription NVARCHAR(MAX),
+    ChangeTimestamp DATETIME2 DEFAULT GETDATE(),
+    ChangedFields NVARCHAR(MAX), -- Nowe pole do bardziej szczegółowego opisu zmian
+    FOREIGN KEY (TaskID) REFERENCES Tasks(TaskID),
+    FOREIGN KEY (ChangedBy) REFERENCES Users(UserID)
+);
+
+-- Indeksowanie dla zwiększenia wydajności
+CREATE INDEX IX_Tasks_TenantID_AssignedTo ON Tasks (TenantID, AssignedTo);
+CREATE INDEX IX_TaskHistory_TaskID ON TaskHistory (TaskID);
+CREATE INDEX IX_TaskHistory_ChangeTimestamp ON TaskHistory (ChangeTimestamp);
+
+-- Widok dla statystyk zadań
+CREATE VIEW TaskStats AS
+SELECT 
+    t.TenantID,
+    u.UserID AS EmployeeID,
+    u.UserName AS EmployeeName,
+    t.Status,
+    CONCAT(YEAR(t.CreatedAt), '-', FORMAT(MONTH(t.CreatedAt), '00')) AS Month,
+    COUNT(*) AS TaskCount
+FROM Tasks t
+JOIN Users u ON t.AssignedTo = u.UserID
+GROUP BY t.TenantID, u.UserID, u.UserName, t.Status, YEAR(t.CreatedAt), MONTH(t.CreatedAt);
+
+-- Procedura dodawania nowego zadania
+CREATE PROCEDURE AddTask
+    @TenantID INT,
+    @AssignedTo INT,
+    @Title NVARCHAR(255),
+    @Description NVARCHAR(MAX),
+    @Priority NVARCHAR(50),
+    @Status NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO Tasks (TenantID, AssignedTo, Title, Description, Priority, Status)
+    VALUES (@TenantID, @AssignedTo, @Title, @Description, @Priority, @Status);
+
+    SELECT SCOPE_IDENTITY() AS NewTaskID;
+END;
+
+-- Procedura edytowania zadania
+CREATE PROCEDURE UpdateTask
+    @TaskID BIGINT,
+    @ChangedBy INT,
+    @Title NVARCHAR(255) = NULL,
+    @Description NVARCHAR(MAX) = NULL,
+    @Priority NVARCHAR(50) = NULL,
+    @Status NVARCHAR(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @ChangedFields NVARCHAR(MAX) = '';
+
+    IF @Title IS NOT NULL AND @Title <> (SELECT Title FROM Tasks WHERE TaskID = @TaskID)
+        SET @ChangedFields = @ChangedFields + 'Title;';
+
+    IF @Description IS NOT NULL AND @Description <> (SELECT Description FROM Tasks WHERE TaskID = @TaskID)
+        SET @ChangedFields = @ChangedFields + 'Description;';
+
+    IF @Priority IS NOT NULL AND @Priority <> (SELECT Priority FROM Tasks WHERE TaskID = @TaskID)
+        SET @ChangedFields = @ChangedFields + 'Priority;';
+
+    IF @Status IS NOT NULL AND @Status <> (SELECT Status FROM Tasks WHERE TaskID = @TaskID)
+        SET @ChangedFields = @ChangedFields + 'Status;';
+
+    UPDATE Tasks
+    SET 
+        Title = COALESCE(@Title, Title),
+        Description = COALESCE(@Description, Description),
+        Priority = COALESCE(@Priority, Priority),
+        Status = COALESCE(@Status, Status),
+        UpdatedAt = GETDATE()
+    WHERE TaskID = @TaskID;
+
+    INSERT INTO TaskHistory (TaskID, ChangedBy, ChangeDescription, ChangedFields)
+    VALUES (@TaskID, @ChangedBy, 'Task updated', @ChangedFields);
+END;
+
+-- Procedura usuwania zadania
+CREATE PROCEDURE DeleteTask
+    @TaskID BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM TaskHistory WHERE TaskID = @TaskID;
+    DELETE FROM Tasks WHERE TaskID = @TaskID;
+END;
+
+-- Procedura pobierania zadań z filtrami
+CREATE PROCEDURE GetTasks
+    @TenantID INT,
+    @UserID INT,
+    @Role NVARCHAR(50),
+    @Status NVARCHAR(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @Role = 'manager'
+    BEGIN
+        SELECT *, CONCAT(YEAR(CreatedAt), '-', FORMAT(MONTH(CreatedAt), '00')) AS Month
+        FROM Tasks
+        WHERE TenantID = @TenantID
+          AND (@Status IS NULL OR Status = @Status)
+        ORDER BY CreatedAt;
+    END
+    ELSE
+    BEGIN
+        SELECT *, CONCAT(YEAR(CreatedAt), '-', FORMAT(MONTH(CreatedAt), '00')) AS Month
+        FROM Tasks
+        WHERE TenantID = @TenantID
+          AND AssignedTo = @UserID
+          AND (@Status IS NULL OR Status = @Status)
+        ORDER BY CreatedAt;
+    END
+END;
+
+-- Skrypt generujący dane testowe
+DECLARE @TenantCounter INT = 10;
+DECLARE @UsersPerTenant INT = 100;
+DECLARE @TasksPerUser INT = 1000;
+
+-- Generowanie podmiotów
+INSERT INTO Tenants (TenantName)
+SELECT CONCAT('Tenant ', n)
+FROM (SELECT TOP (@TenantCounter) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM master.dbo.spt_values) t;
+
+-- Generowanie użytkowników
+INSERT INTO Users (TenantID, UserName, UserRole)
+SELECT 
+    t.TenantID, 
+    CONCAT('User_', t.TenantID, '_', n.n), 
+    CASE WHEN n.n % 10 = 0 THEN 'manager' ELSE 'employee' END
+FROM Tenants t
+CROSS APPLY (SELECT TOP (@UsersPerTenant) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM master.dbo.spt_values) n;
+
+-- Generowanie zadań
+INSERT INTO Tasks (TenantID, AssignedTo, Title, Description, Priority, Status)
+SELECT 
+    u.TenantID,
+    u.UserID,
+    CONCAT('Task_', u.UserID, '_', n.n),
+    CONCAT('Description for Task_', u.UserID, '_', n.n),
+    CASE (n.n % 3) WHEN 0 THEN 'low' WHEN 1 THEN 'medium' ELSE 'high' END,
+    CASE (n.n % 3) WHEN 0 THEN 'pending' WHEN 1 THEN 'in_progress' ELSE 'completed' END
+FROM Users u
+CROSS APPLY (SELECT TOP (@TasksPerUser) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM master.dbo.spt_values) n;
