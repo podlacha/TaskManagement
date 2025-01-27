@@ -22,6 +22,6 @@ Nie mam pewności czy nie powinienem dodać odrębnej tabeli dat (z podziałem n
 ## Usprawnienia
 Aby usprawnić działanie skryptu (szybki rozwój struktury) zaproponowałem indeksowanie oraz partycjonowanie zadań na lata.
 ## Przypisanie ról użytkownikom
-W celu przypisania ról użytkownikom utworzyłem Tabelę, a także procedurę pobierania zadań z filtrami, która powinna powodować, że menedżer ma dostęp tylko do zadań swoich i swoich podwładnych, a nie całego podmiotu.
+W celu przypisania ról użytkownikom utworzyłem Tabelę przypisującą użytkowników do menedżerów, a także procedurę pobierania zadań z filtrami, która powinna powodować, że menedżer ma dostęp tylko do zadań swoich i swoich podwładnych, a nie całego podmiotu.
 ## Kolejny etap
 Kolejnym etapem powinno być przetestowanie kodu, czy wszystko działa zgodnie z założeniami.
